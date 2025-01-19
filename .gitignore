@@ -1,0 +1,13 @@
+
+# python virtual environment
+.venv
+
+# pycharm files
+.idea
+
+# python runtime bytecode
+__pycache__
+
+# do not check in your customizations to the simulation
+custom.py
+

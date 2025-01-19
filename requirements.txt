@@ -1,0 +1,7 @@
+# stuff we ask for
+DateTime==5.5
+python-dateutil==2.9.0.post0
+# stuff that is pulled in because of ^^^
+pytz==2024.2
+six==1.17.0
+zope.interface==7.2
