@@ -3,6 +3,7 @@
 import datetime
 
 from chatgpt import estimate_income_tax, calculate_rmd
+from common import *
 from custom import *
 from constants import *
 
@@ -38,9 +39,18 @@ def job_income(person, year, balances):
         print(f" - {person['name']} does not work")
 
 
-def socsec_income(person, year, balances):
+def socsec_income(person, family, year, balances):
     if age(person, year) >= person["collect_ss"]:
         soc_sec = person["ss_per_mo"][person["collect_ss"] - 62] * 12
+        # If the spouse earns more, then the person can collect half of the spouse's social security.
+        the_spouse = spouse(person, family)
+        if the_spouse:
+            half_spouse_ss = 0
+            if the_spouse:
+                half_spouse_ss = the_spouse["ss_per_mo"][person["collect_ss"] - 62] * 6
+            if half_spouse_ss > soc_sec:
+                soc_sec = half_spouse_ss
+                print(f" - {person['name']} earns 1/2 spouse's social security = ${half_spouse_ss}")
         print(f" - {person['name']} earns social security = ${soc_sec}")
         balances[TAXED_INC] += soc_sec
 
