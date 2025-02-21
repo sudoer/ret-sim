@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
+from copy import deepcopy
 
 from chatgpt import estimate_income_tax, calculate_rmd
 from common import *
@@ -163,6 +164,13 @@ def ensure_minimum_savings_balance(year, balances):
         raise ValueError("Out of money")
 
 
+def total_value(balances):
+    value = balances[SAVINGS]
+    for acct in [DEFERRED_IRA, EXEMPT_ROTH]:
+        value += sum(balances[acct].values())
+    return int(value)
+
+
 def print_year(year, people, balances):
     line = f"YEAR {year}:"
     for person in people:
@@ -189,38 +197,72 @@ def apply_investment_returns_and_inflation(savings, ret_pct=None, inf_pct=None):
                     1.0 + (ret_pct - inf_pct) / 100.0
             )
 
+
+def single_simulation():
+    sim_balances = deepcopy(initial_balances)
+    print_year(start_year, family, sim_balances)
+    year_totals = [total_value(sim_balances)]
+
+    sim_year = start_year
+    try:
+        for sim_year in range(start_year, start_year + num_years):
+            clear_transient_values(sim_balances)
+            # earn income
+            for person in family:
+                job_income(person, sim_year, sim_balances)
+                socsec_income(person, family, sim_year, sim_balances)
+            # spend money
+            budget_expenses(sim_year, sim_balances)
+            housing_expenses(sim_year, sim_balances)
+            healthcare_expenses(sim_year, sim_balances)
+            # other adjustments
+            other_one_time_adjustments(sim_year, sim_balances)
+            # pull money out of retirement accounts
+            required_minimum_distributions(sim_year, family, sim_balances)
+            roth_conversions(sim_year, sim_balances)
+            voluntary_distributions(sim_year, sim_balances)
+            calculate_taxes(sim_year, sim_balances)
+            # At this point, we have adjusted all of the accounts to show how money was moved around.
+            # But we really need to sweep it all back into actual savings accounts.
+            sweep_category_accounts_into_savings(sim_year, sim_balances)
+            ensure_minimum_savings_balance(sim_year, sim_balances)
+            # last step = capital gains and inflation
+            apply_investment_returns_and_inflation(sim_balances)
+            print_year(sim_year, family, sim_balances)
+            year_totals.append(total_value(sim_balances))
+    except ValueError as e:
+        print(f"ERROR: {e}")
+        print_year(sim_year, family, sim_balances)
+        for sim_year in range(sim_year, start_year + num_years):
+            year_totals.append(0)
+
+    return year_totals
+
+
 # Simulation
 
-start_year = datetime.date.today().year
-sim_balances = dict(initial_balances)
-print_year(start_year, family, sim_balances)
+import matplotlib.pyplot as plt
 
-sim_year = start_year
-try:
-    for sim_year in range(start_year, start_year + 50):
-        clear_transient_values(sim_balances)
-        # earn income
-        for person in family:
-            job_income(person, sim_year, sim_balances)
-            socsec_income(person, sim_year, sim_balances)
-        # spend money
-        budget_expenses(sim_year, sim_balances)
-        housing_expenses(sim_year, sim_balances)
-        healthcare_expenses(sim_year, sim_balances)
-        # other adjustments
-        other_one_time_adjustments(sim_year, sim_balances)
-        # pull money out of retirement accounts
-        required_minimum_distributions(sim_year, family, sim_balances)
-        roth_conversions(sim_year, sim_balances)
-        voluntary_distributions(sim_year, sim_balances)
-        calculate_taxes(sim_year, sim_balances)
-        # At this point, we have adjusted all of the accounts to show how money was moved around.
-        # But we really need to sweep it all back into actual savings accounts.
-        sweep_category_accounts_into_savings(sim_year, sim_balances)
-        ensure_minimum_savings_balance(sim_year, sim_balances)
-        # last step = capital gains and inflation
-        apply_investment_returns_and_inflation(sim_balances)
-        print_year(sim_year, family, sim_balances)
-except ValueError as e:
-    print(f"ERROR: {e}")
-    print_year(sim_year, family, sim_balances)
+start_year = datetime.date.today().year
+num_years = 50
+year_array = range(start_year, start_year + num_years + 1)
+simulations = 100
+successes = [0] * (num_years+1)
+
+for sim_num in range(simulations):
+    print(f"SIMULATION {sim_num + 1}")
+    single_sim_data = single_simulation()
+    plt.plot(year_array, single_sim_data, marker=None, linestyle=None)
+
+    # calculate successes - in this one run, did my money last X years?
+    for year in year_array:
+        if single_sim_data[year - start_year] > 0:
+            successes[year - start_year] += 1
+
+for year in range(start_year, start_year + num_years + 1, 5):
+    print(f"{year}, {100 * successes[year - start_year] / simulations : .1f} %")
+
+# plt.title("My Plot")
+# plt.xlabel("X-axis")
+# plt.ylabel("Y-axis")
+plt.show()
