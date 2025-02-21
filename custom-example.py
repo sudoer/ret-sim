@@ -14,6 +14,7 @@ family = [
         "collect_ss": 70,
         # taken from the social security statement: monthly payments if retirement at age 62-70.
         "ss_per_mo": [2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767],
+        "spouse": "Jane",
     },
     {
         "name": "Jane",
@@ -23,6 +24,7 @@ family = [
         "collect_ss": 70,
         # taken from the social security statement: monthly payments if retirement at age 62-70.
         "ss_per_mo": [860, 948, 1045, 1170, 1300, 1436, 1548, 1714, 1940],
+        "spouse": "Bob",
     },
 ]
 
