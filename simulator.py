@@ -2,8 +2,9 @@
 
 import datetime
 from copy import deepcopy
+from idlelib.runscript import indent_message
 
-from chatgpt import estimate_income_tax, calculate_rmd
+from chatgpt import estimate_income_tax, calculate_rmd, get_full_retirement_age
 from common import *
 from custom import *
 from constants import *
@@ -20,7 +21,12 @@ def clear_transient_values(balances):
     balances[TAX_OWED] = 0
 
 
-def job_income(person, year, balances):
+def job_income(year, balances):
+    for person in family:
+        individual_job_income(person, year, balances)
+
+
+def individual_job_income(person, year, balances):
     if age(person, year) < person["retirement"]:
         gross_salary = person["salary"]
         net_salary = gross_salary
@@ -36,24 +42,46 @@ def job_income(person, year, balances):
             balances[EXEMPT_ROTH][person["name"]] += roth_401k_limit
         print(f" - {person['name']} salary = ${gross_salary} -> ${roth_401k_limit} roth + ${net_salary} net")
         balances[TAXED_INC] += net_salary
+    elif age(person, year) == person["retirement"]:
+        print(f" - {person['name']} retires this year")
     else:
         print(f" - {person['name']} does not work")
 
 
-def socsec_income(person, family, year, balances):
-    if age(person, year) >= person["collect_ss"]:
-        soc_sec = person["ss_per_mo"][person["collect_ss"] - 62] * 12
-        # If the spouse earns more, then the person can collect half of the spouse's social security.
-        the_spouse = spouse(person, family)
-        if the_spouse:
-            half_spouse_ss = 0
-            if the_spouse:
-                half_spouse_ss = the_spouse["ss_per_mo"][person["collect_ss"] - 62] * 6
-            if half_spouse_ss > soc_sec:
-                soc_sec = half_spouse_ss
-                print(f" - {person['name']} earns 1/2 spouse's social security = ${half_spouse_ss}")
-        print(f" - {person['name']} earns social security = ${soc_sec}")
-        balances[TAXED_INC] += soc_sec
+
+
+def socsec_income(year, balances):
+
+    # common formula, used a few times below
+    def benefit(person):
+        soc_sec = 0
+        if age(person, year) >= person["collect_ss"]:
+            soc_sec = person["ss_per_mo"][person["collect_ss"] - 62] * 12
+        return soc_sec
+
+    # find the higher benefit among spouses who can collect
+    higher_benefit = 0
+    for person in family:
+        soc_sec = benefit(person)
+        if soc_sec > higher_benefit:
+            higher_benefit = soc_sec
+
+    # collect benefits, if available
+    for person in family:
+        retirement_age = person["collect_ss"]
+        current_age = age(person, year)
+        if current_age >= retirement_age:
+            their_benefit = benefit(person)
+            collected_benefit = their_benefit
+            # special case - spousal benefit
+            # lower earning spouse must wait until full retirement age (67-ish)
+            if retirement_age >= get_full_retirement_age(birth_year(person)):
+                collected_benefit = max(their_benefit, 0.5 * higher_benefit)
+            if collected_benefit > their_benefit:
+                print(f" - {person['name']} earns 1/2 spouse's social security = ${collected_benefit}")
+            else:
+                print(f" - {person['name']} earns social security = ${collected_benefit}")
+            balances[TAXED_INC] += collected_benefit
 
 
 def required_minimum_distributions(year, people, balances):
@@ -96,7 +124,7 @@ def move_from_retirement_accounts(year, balances, ret_acct_type, amount, target_
         if age(person, year) >= 60:
             all_balances += balances[ret_acct_type][person["name"]]
     if all_balances <= 0:
-        print(" - no withdrawable money in retirement accounts")
+        print(f" - no withdrawable money in {ret_acct_type} accounts")
         return
     # Figure out how much we need to distribute from each person's retirement accounts.
     for person in family:
@@ -153,13 +181,13 @@ def sweep_category_accounts_into_savings(year, balances):
 
 def ensure_minimum_savings_balance(year, balances):
     desired_savings = minimum_savings_balance(year)
-    if balances[SAVINGS] <= desired_savings:
-        # Our savings account is running very low.
-        # Pull some from retirement accounts to cover the shortfall.
-        shortfall = desired_savings - balances[SAVINGS]
-        print(f" - savings came up short by ${int(shortfall)}")
-        ## TAXES move_from_retirement_accounts(year, balances, DEFERRED_IRA, shortfall, IRA_WITHDRAWALS)
-        move_from_retirement_accounts(year, balances, EXEMPT_ROTH, shortfall, SAVINGS, "savings shortfall")
+    for from_acct, to_acct in [(DEFERRED_IRA, IRA_WITHDRAWALS), (EXEMPT_ROTH, SAVINGS)]:
+        if balances[SAVINGS] <= desired_savings:
+            # Our savings account is running very low.
+            # Pull some from retirement accounts to cover the shortfall.
+            shortfall = desired_savings - balances[SAVINGS]
+            print(f" - savings came up short by ${int(shortfall)}")
+            move_from_retirement_accounts(year, balances, from_acct, shortfall, to_acct, "savings shortfall")
     if balances[SAVINGS] <= 0:
         raise ValueError("Out of money")
 
@@ -184,18 +212,24 @@ def print_year(year, people, balances):
     print(line)
 
 
-def apply_investment_returns_and_inflation(savings, ret_pct=None, inf_pct=None):
-    if not ret_pct and not inf_pct:
-        ret_pct = return_percentage()
-        inf_pct = inflation_percentage()
-        print(f" - investment returns = {ret_pct:.1f}%, inflation = {inf_pct:.1f}%")
-    for sv_key, value in savings.items():
-        if isinstance(value, dict):
-            apply_investment_returns_and_inflation(value, ret_pct, inf_pct)
-        else:
-            savings[sv_key] *= (
-                    1.0 + (ret_pct - inf_pct) / 100.0
-            )
+def apply_investment_returns_and_inflation(balances):
+    ret_pct = return_percentage()
+    inf_pct = inflation_percentage()
+    print(f" - investment returns = {ret_pct:.1f}%, inflation = {inf_pct:.1f}%")
+
+    def adjust_account(dic, dicname, dkey, ret, inf):
+        before = dic[dkey]
+        dic[dkey] *= (1.0 + (ret - inf) / 100.0)
+        after = dic[dkey]
+        pct = 0
+        if before > 0:
+            pct = ((after / before) - 1) * 100.0
+        print(f" - account {dicname} {dkey} : {int(before)} -> {int(after)} = {pct:.2f}%")
+
+    adjust_account(balances, "shared", SAVINGS, ret_pct, inf_pct)
+    for person in family:
+        adjust_account(balances[DEFERRED_IRA], "IRA", person["name"], ret_pct, inf_pct)
+        adjust_account(balances[EXEMPT_ROTH], "Roth", person["name"], ret_pct, inf_pct)
 
 
 def single_simulation():
@@ -208,9 +242,8 @@ def single_simulation():
         for sim_year in range(start_year, start_year + num_years):
             clear_transient_values(sim_balances)
             # earn income
-            for person in family:
-                job_income(person, sim_year, sim_balances)
-                socsec_income(person, family, sim_year, sim_balances)
+            job_income(sim_year, sim_balances)
+            socsec_income(sim_year, sim_balances)
             # spend money
             budget_expenses(sim_year, sim_balances)
             housing_expenses(sim_year, sim_balances)
@@ -263,6 +296,13 @@ for year in range(start_year, start_year + num_years + 1, 5):
     print(f"{year}, {100 * successes[year - start_year] / simulations : .1f} %")
 
 # plt.title("My Plot")
-# plt.xlabel("X-axis")
-# plt.ylabel("Y-axis")
+plt.xlabel("years")
+plt.ylabel("money")
+plt.ylim(bottom=0, top=5_000_000)
+
+# Format the y-axis (money) to prevent scientific notation
+plt.ticklabel_format(axis='y', style='plain')
+# Optionally, format the x-axis (years) as well
+plt.ticklabel_format(axis='x', style='plain')
+
 plt.show()

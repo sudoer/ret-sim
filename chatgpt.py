@@ -129,3 +129,23 @@ def random_inflation(mean=3.0, std_dev=2.0, min_value=-2.0, max_value=15.0):
             return round(inflation, 2)
 
 
+def get_full_retirement_age(birth_year: int) -> float:
+    """
+    Calculate the Full Retirement Age (FRA) for Social Security based on birth year.
+    :param birth_year: Year of birth (integer)
+    :return: FRA as a floating-point number (years.months/12)
+    """
+    if birth_year <= 1937:
+        return 65.0
+    elif 1938 <= birth_year <= 1942:
+        months = (birth_year - 1937) * 2
+        return 65 + months / 12
+    elif 1943 <= birth_year <= 1954:
+        return 66.0
+    elif 1955 <= birth_year <= 1959:
+        months = (birth_year - 1954) * 2
+        return 66 + months / 12
+    elif birth_year >= 1960:
+        return 67.0
+    else:
+        raise ValueError("Invalid birth year")
