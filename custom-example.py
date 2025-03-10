@@ -1,87 +1,102 @@
 
-from common import age
-from constants import *
+from common import Person, Account
+from customize import CustomizationsTemplate
 import chatgpt
-import random
-import time
-
-family = [
-    {
-        "name": "Bob",
-        "birthday": "1970-01-01",
-        "salary": 125000,
-        "retirement": 62,
-        "collect_ss": 70,
-        # taken from the social security statement: monthly payments if retirement at age 62-70.
-        "ss_per_mo": [2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767],
-        "spouse": "Jane",
-    },
-    {
-        "name": "Jane",
-        "birthday": "1971-02-02",
-        "salary": 95000,
-        "retirement": 64,
-        "collect_ss": 70,
-        # taken from the social security statement: monthly payments if retirement at age 62-70.
-        "ss_per_mo": [860, 948, 1045, 1170, 1300, 1436, 1548, 1714, 1940],
-        "spouse": "Bob",
-    },
-]
-
-initial_balances = {
-    "savings": 300000,
-    "ira": {"Bob": 100000, "Jane": 75000},
-    "roth": {"Bob": 125000, "Jane": 105000},
-}
-
-random.seed(time.time())
-
-def budget_expenses(year, balances):
-    expenses = 75000
-    print(f" - budget expenses = ${expenses}")
-    balances[EXPENSES] -= expenses
 
 
-def housing_expenses(year, balances):
-    expenses = 60000
-    print(f" - housing expenses = ${expenses}")
-    balances[EXPENSES] -= expenses
+class Customizations(CustomizationsTemplate):
+
+    joe = Person(
+        'Joe',
+        '1970-01-01',
+        125_000,
+        65,
+        70,
+        [2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767]
+    )
+    jane = Person(
+        'Jane',
+        '1971-01-01',
+        95_000,
+        64,
+        70,
+        [860, 948, 1045, 1170, 1300, 1436, 1548, 1714, 1940],
+        joe
+    )
+    family = [joe, jane]
+    initial_balances = [
+        Account(Account.SAVINGS, None, 150_000),
+        Account(Account.DEFERRED_IRA, joe, 100_000),
+        Account(Account.DEFERRED_IRA, jane, 75_000),
+        Account(Account.EXEMPT_ROTH, joe, 125_000),
+        Account(Account.EXEMPT_ROTH, jane, 105_000),
+    ]
+
+    def budget_expenses(self, year, accounts):
+        expenses = 75_000
+        print(f" - budget expenses = ${expenses}")
+        # Expenses are subtracted from the expenses account
+        accounts.get(Account.EXPENSES).subtract(expenses)
 
 
-def return_percentage():
-    return chatgpt.random_inflation(mean=6.0, std_dev=2.0, min_value=-2.0, max_value=15.0)
+    def housing_expenses(self, year, accounts):
+        # taxes
+        expenses = 4000
+
+        # HOA
+        expenses += 50 * 12
+
+        # 30-year mortgage, starting in 2015
+        if year <= 2015+30:
+            expenses += (2500*12)
+
+        print(f" - housing expenses = ${expenses}")
+        # Expenses are subtracted from the expenses account
+        accounts.get(Account.EXPENSES).subtract(expenses)
 
 
-def inflation_percentage():
-    return chatgpt.random_inflation()
+    def healthcare_expenses(self, year, accounts):
+        for person in self.family:
+            expenses = 0
+            if person.age(year) >= 80:
+                # more health problems
+                expenses += 10000
+            elif person.age(year) >= 65:
+                # medicare
+                expenses += 5000
+            print(f" - healthcare expenses for {person} = ${int(expenses)}")
+            # Expenses are subtracted from the expenses account
+            accounts.get(Account.EXPENSES).subtract(expenses)
 
 
-def distribution_percentage(year):
-    return 4.0
+    def other_one_time_adjustments(self, year, accounts):
+
+        if year % 5 == 0:
+            print(" - buying a new car")
+            # Expenses are subtracted from the expenses account
+            accounts.get(Account.EXPENSES).subtract(40_000)
+
+        # Bitsight shares
+        if year == 2034:
+            print(" - sell company shares for $100,000")
+            accounts.get(Account.TAXED_INC).add(100_000)
+
+        pass
 
 
-def minimum_savings_balance(year):
-    return 50000
+    def return_percentage(self):
+        return chatgpt.random_inflation(mean=6.5, std_dev=2.0, min_value=-5.0, max_value=24.0)
+        # return chatgpt.random_inflation(mean=6.5, std_dev=8.0, min_value=-5.0, max_value=24.0)
 
 
-def healthcare_expenses(year, balances):
-    for person in family:
-        expenses = 0
-        if age(person, year) >= 80:
-            # more health problems
-            expenses += 10000
-        elif age(person, year) >= 65:
-            # medicare
-            expenses += 5000
-        else:
-            # Obamacare
-            expenses += 12 * 1707 / 2
-        print(f" - healthcare expenses for {person['name']} = ${int(expenses)}")
-        balances[EXPENSES] -= expenses
+    def inflation_percentage(self):
+        # mean=3.0, std_dev=2.0, min_value=-2.0, max_value=15.0
+        return chatgpt.random_inflation()
 
 
-def other_one_time_adjustments(year, balances):
-    # company stock options
-    if year == 2034:
-        print(" - sell company options for $100,000")
-        balances[TAXED_INC] += 100000
+    def distribution_percentage(self, year):
+        return 2.0
+
+
+    def minimum_savings_balance(self, year):
+        return 50000

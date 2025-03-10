@@ -11,3 +11,7 @@ __pycache__
 # do not check in your customizations to the simulation
 custom.py
 
+# output
+*.out
+
+
