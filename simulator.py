@@ -2,11 +2,18 @@
 
 import datetime
 import random
+import sys
 import time
 
 from chatgpt import estimate_income_tax, calculate_rmd
 from common import *
-from custom import Customizations
+try:
+    from custom import Customizations
+except ModuleNotFoundError:
+    print("The first time you run this, you need to create a 'custom.py' file.")
+    print("It contains your specific scenario parameters: family, starting balances, preferences.")
+    print("Start off by copying 'custom-example.py' to 'custom.py' and editing the file.")
+    sys.exit()
 
 
 class Simulation:
