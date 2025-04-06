@@ -76,7 +76,7 @@ class Customizations(CustomizationsTemplate):
             # Expenses are subtracted from the expenses account
             accounts.get(Account.EXPENSES).subtract(40_000)
 
-        # Bitsight shares
+        # employer shares
         if year == 2034:
             print(" - sell company shares for $100,000")
             accounts.get(Account.TAXED_INC).add(100_000)
