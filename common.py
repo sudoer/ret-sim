@@ -56,16 +56,18 @@ class Account:
         self.type = acct_type
         self.owner = owner
         self.balance = balance
+        self.debug = False
 
     def add(self, amount):
-        before = self.balance
-        after = self.balance + amount
-        ownership = f"{self.owner}'s" if self.owner else "shared"
-        add = "+" if amount >= 0 else "-"
-        print(
-            f"    . account {ownership} {self.type} : ${int(before)} {add} {int(abs(amount))} -> ${int(after)}"
-        )
-        self.balance = after
+        if self.debug:
+            before = self.balance
+            after = self.balance + amount
+            ownership = f"{self.owner}'s" if self.owner else "shared"
+            add = "+" if amount >= 0 else "-"
+            print(
+                f"{self.debug}account {ownership} {self.type} : ${int(before)} {add} {int(abs(amount))} -> ${int(after)}"
+            )
+        self.balance = self.balance + amount
 
     def subtract(self, amount):
         self.add(0 - amount)
@@ -87,7 +89,7 @@ class Account:
         return f"{self.label()}: ${int(self.clean_balance())}"
 
 class Accounts:
-    def __init__(self, initial_accounts=None):
+    def __init__(self, initial_accounts=None, debug=False):
         self.accounts = {}
         # add COPIES of initial accounts
         for account in initial_accounts:

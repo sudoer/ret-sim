@@ -8,6 +8,7 @@ import time
 import chatgpt
 from common import *
 
+DEBUG_PREFIX = "    . "
 
 class SimulationBase(ABC):
     def __init__(self, start_year, num_years):
@@ -16,6 +17,7 @@ class SimulationBase(ABC):
         self.accounts = None
         self.year = None
         random.seed(time.time())
+        self.debug = False
 
     def __str__(self):
         on_year = ''
@@ -217,11 +219,16 @@ class SimulationBase(ABC):
             pct = 0
             if before > 0:
                 pct = ((after / before) - 1) * 100.0
-            print(f"    . account {account.label()} : {int(before)} adjusted {pct:.2f}% = {int(after)}")
+            if self.debug:
+                print(f"{DEBUG_PREFIX}account {account.label()} : {int(before)} adjusted {pct:.2f}% = {int(after)}")
 
     def single_simulation(self):
         self.year = self.start_year
         self.accounts = Accounts(self.initial_balances())
+        # poke our debug flag (as a prefix string) into each account
+        if self.debug:
+            for account in self.accounts.all():
+                account.debug = DEBUG_PREFIX
         self.print_year()
         year_totals = [self.total_value()]
         try:

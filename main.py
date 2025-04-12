@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--simulation", default="example", help="simulation module, contains a class called Simulation")
 parser.add_argument("--runs", type=int, default=100, help="number of simulations")
 parser.add_argument("--years", type=int, default=50, help="number of years")
-# parser.add_argument("--debug", type=bool, default=False, action="store_true", help="print more output")
+parser.add_argument("--debug", default=False, action="store_true", help="print more output")
 
 args = parser.parse_args()
 
@@ -27,6 +27,8 @@ simulation_module = __import__(args.simulation)
 for run_num in range(num_runs):
     print(f"SIMULATION {run_num + 1}")
     this_sim = simulation_module.Simulation(start_year, num_years)
+    if args.debug:
+        this_sim.debug = True
     print(f"starting {this_sim}")
     single_sim_data = this_sim.single_simulation()
     plt.plot(year_array, single_sim_data, marker=None, linestyle=None)
