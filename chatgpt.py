@@ -149,3 +149,4 @@ def get_full_retirement_age(birth_year: int) -> float:
         return 67.0
     else:
         raise ValueError("Invalid birth year")
+

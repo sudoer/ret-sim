@@ -1,28 +1,19 @@
 #!/usr/bin/env python3
 
-import datetime
+from abc import ABC, abstractmethod
 import random
 import sys
 import time
 
-from chatgpt import estimate_income_tax, calculate_rmd
+import chatgpt
 from common import *
-try:
-    from custom import Customizations
-except ModuleNotFoundError:
-    print("The first time you run this, you need to create a 'custom.py' file.")
-    print("It contains your specific scenario parameters: family, starting balances, preferences.")
-    print("Start off by copying 'custom-example.py' to 'custom.py' and editing the file.")
-    sys.exit()
 
 
-class Simulation:
-    def __init__(self, custom, start_year, num_years):
-        self.custom = custom
+class SimulationBase(ABC):
+    def __init__(self, start_year, num_years):
         self.start_year = start_year
         self.num_years = num_years
-        self.family = self.custom.family
-        self.accounts = Accounts(self.custom.initial_balances)
+        self.accounts = Accounts(self.initial_balances())
         self.year = None
         random.seed(time.time())
 
@@ -33,7 +24,7 @@ class Simulation:
         return f"Simulation{on_year} for {self.num_years} years with balances: {self.accounts}"
 
     def job_income(self):
-        for person in self.family:
+        for person in self.family():
             self.individual_job_income(person)
 
     def individual_job_income(self, person):
@@ -67,13 +58,13 @@ class Simulation:
 
         # find the higher benefit among spouses who can collect
         higher_benefit = 0
-        for person in self.family:
+        for person in self.family():
             soc_sec = benefit(person)
             if soc_sec > higher_benefit:
                 higher_benefit = soc_sec
 
         # collect benefits, if available
-        for person in self.family:
+        for person in self.family():
             if person.claiming_ss(self.year):
                 their_benefit = benefit(person)
                 collected_benefit = their_benefit
@@ -89,11 +80,15 @@ class Simulation:
 
 
     def required_minimum_distributions(self):
-        for person in self.family:
+        for person in self.family():
             person_age = person.age(self.year)
             if person_age >= 73:
                 ira_balance = self.accounts.get(Account.DEFERRED_IRA).balance
-                rmd = calculate_rmd(ira_balance, person_age)
+                try:
+                    rmd = chatgpt.calculate_rmd(ira_balance, person_age)
+                except ValueError:
+                    print(f" - ERROR: {person} is too young or old for RMD")
+                    rmd = 0
                 if rmd > 0:
                     print(f" - {person} takes RMD of ${int(rmd)}")
                     self.accounts.get(Account.IRA_WITHDRAWALS).add(rmd)
@@ -104,7 +99,7 @@ class Simulation:
         if self.accounts.get(Account.TAXED_INC).balance > 0:
             return
 
-        for person in self.family:
+        for person in self.family():
             trad_ira_value = self.accounts.get(Account.DEFERRED_IRA, person).balance
             conversion = min(trad_ira_value, 125_000)
             if conversion <= 0:
@@ -125,14 +120,14 @@ class Simulation:
             f" - requesting ${int(amount)} from {ret_acct_type} for {why}"
         )
         all_balances = 0.0
-        for person in self.family:
+        for person in self.family():
             if person.age(self.year) >= 59.5:
                 all_balances += self.accounts.get(ret_acct_type, person).balance
         if all_balances <= 0:
             print(f" - no withdrawable money in {ret_acct_type} accounts")
             return
         # Figure out how much we need to distribute from each person's retirement accounts.
-        for person in self.family:
+        for person in self.family():
             if person.age(self.year) >= 59.5:
                 person_balance = self.accounts.get(ret_acct_type, person).balance
                 person_share = min(amount * (person_balance / all_balances), person_balance)
@@ -143,7 +138,7 @@ class Simulation:
                 self.accounts.get(target_acct).add(person_share)
 
     def voluntary_distributions(self):
-        target_int = self.custom.distribution_percentage(self.year)
+        target_int = self.distribution_percentage(self.year)
         target_pct = target_int / 100.0
         why = f"{target_int}% voluntary distribution"
 
@@ -169,7 +164,7 @@ class Simulation:
 
     def calculate_taxes(self):
         taxable_income = self.accounts.get(Account.TAXED_INC).balance + self.accounts.get(Account.IRA_WITHDRAWALS).balance
-        tax = estimate_income_tax(taxable_income)
+        tax = chatgpt.estimate_income_tax(taxable_income)
         print(f" - estimated tax on ${taxable_income:,.0f} income is ${tax:,.0f}")
         # Since it's an expense, we'll record it as a negative number.
         self.accounts.get(Account.TAX_OWED).subtract(tax)
@@ -182,7 +177,7 @@ class Simulation:
                 self.accounts.get(Account.SAVINGS).add(move_amt)
 
     def ensure_minimum_savings_balance(self):
-        desired_savings = self.custom.minimum_savings_balance(self.year)
+        desired_savings = self.minimum_savings_balance(self.year)
         for from_acct, to_acct in [(Account.DEFERRED_IRA, Account.IRA_WITHDRAWALS), (Account.EXEMPT_ROTH, Account.SAVINGS)]:
             savings_balance = self.accounts.get(Account.SAVINGS).balance
             if savings_balance <= desired_savings:
@@ -203,7 +198,7 @@ class Simulation:
 
     def print_year(self):
         line = f"YEAR {self.year}:"
-        for person in self.family:
+        for person in self.family():
             line += f"  {person.name}: {person.age(self.year)}  "
         for account in self.accounts.persistent_accounts() + self.accounts.perennial_accounts():
             line += f"  {account}"
@@ -211,8 +206,8 @@ class Simulation:
 
 
     def apply_investment_returns_and_inflation(self):
-        ret_pct = self.custom.return_percentage()
-        inf_pct = self.custom.inflation_percentage()
+        ret_pct = self.return_percentage()
+        inf_pct = self.inflation_percentage()
         print(f" - investment returns = {ret_pct:.1f}%, inflation = {inf_pct:.1f}%")
 
         for account in self.accounts.persistent_accounts():
@@ -222,7 +217,7 @@ class Simulation:
             pct = 0
             if before > 0:
                 pct = ((after / before) - 1) * 100.0
-            print(f" - account {account.label()} : {int(before)} -> {int(after)} = {pct:.2f}%")
+            print(f"    . account {account.label()} : {int(before)} adjusted {pct:.2f}% = {int(after)}")
 
     def single_simulation(self):
         # sim_balances = Accounts(initial_balances)
@@ -239,11 +234,11 @@ class Simulation:
                 self.job_income()
                 self.socsec_income()
                 # spend money
-                self.custom.budget_expenses(self.year, self.accounts)
-                self.custom.housing_expenses(self.year, self.accounts)
-                self.custom.healthcare_expenses(self.year, self.accounts)
+                self.budget_expenses(self.year, self.accounts)
+                self.housing_expenses(self.year, self.accounts)
+                self.healthcare_expenses(self.year, self.accounts)
                 # other adjustments
-                self.custom.other_one_time_adjustments(self.year, self.accounts)
+                self.other_one_time_adjustments(self.year, self.accounts)
                 # pull money out of retirement accounts
                 self.required_minimum_distributions()
                 self.roth_conversions()
@@ -263,45 +258,53 @@ class Simulation:
             print(f"ERROR: {e}")
             self.year += 1
             self.print_year()
-            while len(year_totals) <= num_years:
+            while len(year_totals) <= self.num_years:
                 year_totals.append(0)
 
         return year_totals
 
+    # ABSTRACT FUNCTIONS - YOU SHOULD SUBCLASS AND OVERRIDE THESE
 
-# Simulation
+    @abstractmethod
+    def family(self):
+        raise NotImplementedError
 
-import matplotlib.pyplot as plt
 
-start_year = datetime.date.today().year
-num_years = 50
-year_array = range(start_year, start_year + num_years + 1)
-simulations = 100
-successes = [0] * (num_years+1)
+    @abstractmethod
+    def initial_balances(self):
+        raise NotImplementedError
 
-for sim_num in range(simulations):
-    print(f"SIMULATION {sim_num + 1}")
-    this_sim = Simulation(Customizations(), start_year, num_years)
-    print(f"starting {this_sim}")
-    single_sim_data = this_sim.single_simulation()
-    plt.plot(year_array, single_sim_data, marker=None, linestyle=None)
 
-    # calculate successes - in this one run, did my money last X years?
-    for year in year_array:
-        if single_sim_data[year - start_year] > 0:
-            successes[year - start_year] += 1
+    @abstractmethod
+    def budget_expenses(self, year, accounts):
+        raise NotImplementedError
 
-for year in range(start_year, start_year + num_years + 1, 5):
-    print(f"{year}, {100 * successes[year - start_year] / simulations : .1f} %")
 
-# plt.title("My Plot")
-plt.xlabel("years")
-plt.ylabel("money")
-plt.ylim(bottom=0, top=5_000_000)
+    def housing_expenses(self, year, accounts):
+        raise NotImplementedError
 
-# Format the y-axis (money) to prevent scientific notation
-plt.ticklabel_format(axis='y', style='plain')
-# Optionally, format the x-axis (years) as well
-plt.ticklabel_format(axis='x', style='plain')
 
-plt.show()
+    def healthcare_expenses(self, year, accounts):
+        raise NotImplementedError
+
+
+    def other_one_time_adjustments(self, year, accounts):
+        raise NotImplementedError
+
+
+    def return_percentage(self):
+        raise NotImplementedError
+
+
+    def inflation_percentage(self):
+        # mean=3.0, std_dev=2.0, min_value=-2.0, max_value=15.0
+        return chatgpt.random_inflation()
+
+
+    def distribution_percentage(self, year):
+        raise NotImplementedError
+
+
+    def minimum_savings_balance(self, year):
+        raise NotImplementedError
+

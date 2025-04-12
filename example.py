@@ -1,36 +1,42 @@
 
 from common import Person, Account
-from customize import CustomizationsTemplate
 import chatgpt
+from simulation import SimulationBase
 
 
-class Customizations(CustomizationsTemplate):
+class Simulation(SimulationBase):
 
-    joe = Person(
-        'Joe',
-        '1970-01-01',
-        125_000,
-        65,
-        70,
-        [2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767]
-    )
-    jane = Person(
-        'Jane',
-        '1971-01-01',
-        95_000,
-        64,
-        70,
-        [860, 948, 1045, 1170, 1300, 1436, 1548, 1714, 1940],
-        joe
-    )
-    family = [joe, jane]
-    initial_balances = [
-        Account(Account.SAVINGS, None, 150_000),
-        Account(Account.DEFERRED_IRA, joe, 100_000),
-        Account(Account.DEFERRED_IRA, jane, 75_000),
-        Account(Account.EXEMPT_ROTH, joe, 125_000),
-        Account(Account.EXEMPT_ROTH, jane, 105_000),
-    ]
+    def __init__(self, start_year, num_years):
+        self.joe = Person(
+            'Joe',
+            '1970-01-01',
+            125_000,
+            65,
+            70,
+            [2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767]
+        )
+        self.jane = Person(
+            'Jane',
+            '1971-01-01',
+            95_000,
+            64,
+            70,
+            [860, 948, 1045, 1170, 1300, 1436, 1548, 1714, 1940],
+            self.joe
+        )
+        super().__init__(start_year, num_years)
+
+    def family(self):
+        return [self.joe, self.jane]
+
+    def initial_balances(self):
+        return [
+            Account(Account.SAVINGS, None, 150_000),
+            Account(Account.DEFERRED_IRA, self.joe, 100_000),
+            Account(Account.DEFERRED_IRA, self.jane, 75_000),
+            Account(Account.EXEMPT_ROTH, self.joe, 125_000),
+            Account(Account.EXEMPT_ROTH, self.jane, 105_000),
+        ]
 
     def budget_expenses(self, year, accounts):
         expenses = 75_000
@@ -56,7 +62,7 @@ class Customizations(CustomizationsTemplate):
 
 
     def healthcare_expenses(self, year, accounts):
-        for person in self.family:
+        for person in self.family():
             expenses = 0
             if person.age(year) >= 80:
                 # more health problems

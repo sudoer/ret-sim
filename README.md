@@ -12,14 +12,14 @@ simulation.
 * install dependencies `pip install -r requirements.txt`
 
 ## customize your simulation
-* copy `custom-example.py` to `custom.py`
+* subclass the Simulation base class
+    + copy `example.py` to `chooseyourname.py`
 * edit the values in the family structure
 * edit the values in the initial_balances structure
 * edit the functions for rates and stuff
 
 ## run application
-* run `python simulator.py`
-* or get just the summaries with "grep" `python simulator.py | grep YEAR`
+* run `python main.py --simulation=chooseyourname --years=50 --runs=100`
 
 ## how it works
 * The "balances" represent pools of money.  Some are real accounts and some are

@@ -58,10 +58,17 @@ class Account:
         self.balance = balance
 
     def add(self, amount):
-        self.balance += amount
+        before = self.balance
+        after = self.balance + amount
+        ownership = f"{self.owner}'s" if self.owner else "shared"
+        add = "+" if amount >= 0 else "-"
+        print(
+            f"    . account {ownership} {self.type} : ${int(before)} {add} {abs(amount)} -> ${int(after)}"
+        )
+        self.balance = after
 
     def subtract(self, amount):
-        self.balance -= amount
+        self.add(0 - amount)
 
     def clean_balance(self):
         if abs(self.balance) < 0.1:

@@ -8,9 +8,6 @@
 # python runtime bytecode
 __pycache__
 
-# do not check in your customizations to the simulation
-custom.py
-
 # output
 *.out
 
