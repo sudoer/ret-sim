@@ -13,7 +13,7 @@ class SimulationBase(ABC):
     def __init__(self, start_year, num_years):
         self.start_year = start_year
         self.num_years = num_years
-        self.accounts = Accounts(self.initial_balances())
+        self.accounts = None
         self.year = None
         random.seed(time.time())
 
@@ -220,9 +220,8 @@ class SimulationBase(ABC):
             print(f"    . account {account.label()} : {int(before)} adjusted {pct:.2f}% = {int(after)}")
 
     def single_simulation(self):
-        # sim_balances = Accounts(initial_balances)
-
         self.year = self.start_year
+        self.accounts = Accounts(self.initial_balances())
         self.print_year()
         year_totals = [self.total_value()]
         try:

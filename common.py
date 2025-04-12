@@ -63,7 +63,7 @@ class Account:
         ownership = f"{self.owner}'s" if self.owner else "shared"
         add = "+" if amount >= 0 else "-"
         print(
-            f"    . account {ownership} {self.type} : ${int(before)} {add} {abs(amount)} -> ${int(after)}"
+            f"    . account {ownership} {self.type} : ${int(before)} {add} {int(abs(amount))} -> ${int(after)}"
         )
         self.balance = after
 
