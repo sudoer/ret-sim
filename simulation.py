@@ -166,8 +166,10 @@ class SimulationBase(ABC):
 
     def calculate_taxes(self):
         taxable_income = self.accounts.get(Account.TAXED_INC).balance + self.accounts.get(Account.IRA_WITHDRAWALS).balance
-        tax = chatgpt.estimate_income_tax(taxable_income)
-        print(f" - estimated tax on ${taxable_income:,.0f} income is ${tax:,.0f}")
+        married_yn = len(self.family()) > 1
+        tax = chatgpt.estimate_income_tax(taxable_income, married_yn)
+        status_str = "married" if married_yn else "single"
+        print(f" - estimated tax ({status_str}) on ${taxable_income:,.0f} income is ${tax:,.0f}")
         # Since it's an expense, we'll record it as a negative number.
         self.accounts.get(Account.TAX_OWED).subtract(tax)
 
