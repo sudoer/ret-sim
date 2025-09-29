@@ -7,6 +7,7 @@ and "loads".  It is designed so it could be run multiple times, perhaps in a Mon
 simulation.
 
 ## set up environment
+* requires Python 3
 * create a virtual environment `python -m venv .venv`
 * use it in your shell `source .venv/bin/activate`
 * install dependencies `pip install -r requirements.txt`

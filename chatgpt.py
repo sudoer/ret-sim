@@ -165,27 +165,30 @@ def get_full_retirement_age(birth_year: int) -> float:
 
 
 def random_fund_return(
-        average_annual_return=0.10,
-        annual_volatility=0.20,
+        average_annual_return_pct,
+        annual_volatility_pct,
         seed=None
 ) -> float:
     """
     Simulates one year of returns and returns the resulting annual return percentage.
 
     Parameters:
-        average_annual_return (float): Expected average annual return (e.g. 0.10 for 10%)
-        annual_volatility (float): Annualized volatility (e.g. 0.20 for 20%)
+        average_annual_return_pct (float): Expected average annual return (e.g. 10 for 10%)
+        annual_volatility_pct (float): Annualized volatility (e.g. 20 for 20%)
         seed (int or None): Random seed for reproducibility
 
     Returns:
         float: Simulated annual return as a percentage (e.g., 12.34 means 12.34%)
     """
+    average_annual_return_float = average_annual_return_pct / 100.0
+    annual_volatility_float = annual_volatility_pct / 100.0
+
     if seed is not None:
         np.random.seed(seed)
 
     days = 252  # Trading days in a year
-    daily_return = average_annual_return / days
-    daily_volatility = annual_volatility / np.sqrt(days)
+    daily_return = average_annual_return_float / days
+    daily_volatility = annual_volatility_float / np.sqrt(days)
 
     # Generate random daily returns
     daily_returns = np.random.normal(daily_return, daily_volatility, days)

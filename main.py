@@ -25,6 +25,7 @@ successes = [0] * (num_years + 1)
 simulation_module = __import__(args.simulation)
 
 for run_num in range(num_runs):
+    print(f"\n{50 * '-'}\n")
     print(f"SIMULATION {run_num + 1}")
     this_sim = simulation_module.Simulation(start_year, num_years)
     if args.debug:
@@ -39,16 +40,19 @@ for run_num in range(num_runs):
             successes[year - start_year] += 1
 
 for year in range(start_year, start_year + num_years + 1, 5):
-    print(f"{year}, {100 * successes[year - start_year] / num_runs : .1f} %")
+    simulation_instance = simulation_module.Simulation(start_year, num_years)
+    family = simulation_instance.family()
+    ages = ', '.join([str(p.age(year)) for p in family])
+    print(f"{year} (ages {ages}), {100 * successes[year - start_year] / num_runs : .1f} %")
 
 # plt.title("My Plot")
 plt.xlabel("years")
 plt.ylabel("money")
-plt.ylim(bottom=0, top=5_000_000)
+plt.ylim(bottom=0, top=4_000_000)
 
 # Format the y-axis (money) to prevent scientific notation
 plt.ticklabel_format(axis='y', style='plain')
 # Optionally, format the x-axis (years) as well
 plt.ticklabel_format(axis='x', style='plain')
 
-plt.show()
+plt.show(block=True)

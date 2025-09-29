@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 import random
-import sys
 import time
 
 import chatgpt
@@ -78,7 +77,7 @@ class SimulationBase(ABC):
                     print(f" - {person} earns 1/2 spouse's social security = ${collected_benefit}")
                 else:
                     print(f" - {person} earns social security = ${collected_benefit}")
-                self.accounts.get(Account.TAXED_INC).add(collected_benefit)
+                self.accounts.get(Account.UNTAXED_INC).add(collected_benefit)
 
 
     def required_minimum_distributions(self):
@@ -204,6 +203,7 @@ class SimulationBase(ABC):
         line = f"YEAR {self.year}:"
         for person in self.family():
             line += f"  {person.name}: {person.age(self.year)}  "
+        line += f"  total value = ${self.total_value():,}"
         for account in self.accounts.persistent_accounts() + self.accounts.perennial_accounts():
             line += f"  {account}"
         print(line)
