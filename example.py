@@ -8,12 +8,12 @@ class Simulation(SimulationBase):
 
     def __init__(self, start_year, num_years):
         self.joe = Person(
-            'Joe',
-            '1970-01-01',
-            125_000,
-            65,
-            70,
-            [2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767]
+            name="Joe",
+            birthday_str="1970-01-01",
+            salary=125_000,
+            retirement_age=65,
+            ss_age=70,
+            ss_benefits=[2606, 2793, 2998, 3264, 3533, 3804, 3921, 4243, 4767]
         )
         self.jane = Person(
             'Jane',
@@ -68,8 +68,8 @@ class Simulation(SimulationBase):
                 # more health problems
                 expenses += 10000
             elif person.age(year) >= 65:
-                # medicare
-                expenses += 5000
+                # medicare premiums
+                expenses += 150 * 12
             print(f" - healthcare expenses for {person} = ${int(expenses)}")
             # Expenses are subtracted from the expenses account
             accounts.get(Account.EXPENSES).subtract(expenses)

@@ -44,9 +44,13 @@ class SimulationBase(ABC):
                 roth_401k_limit += 7500
             if net_salary > roth_401k_limit:
                 net_salary -= roth_401k_limit
+                # We get our entire salary as TAXED_INC.  We have to pay taxes on it.
+                # But then we take some out of "SAVINGS" and move into the ROTH account.
                 self.accounts.get(Account.EXEMPT_ROTH, person).add(roth_401k_limit)
+                self.accounts.get(Account.SAVINGS, person).subtract(roth_401k_limit)
             print(f" - {person} salary = ${gross_salary} -> ${roth_401k_limit} roth + ${net_salary} net")
-            self.accounts.get(Account.TAXED_INC).add(net_salary)
+            self.accounts.get(Account.TAXED_INC).add(gross_salary)
+
 
     def socsec_income(self):
 

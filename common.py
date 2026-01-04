@@ -40,14 +40,14 @@ class Person:
 
 
 class Account:
-    # assigned values, used within a single year
+    # values assigned by your functions, used within a single year and then zeroed out
     EXPENSES = "expenses"
     TAXED_INC = "taxed_income"
     UNTAXED_INC = "untaxed_income"
-    # computed values, used within a single year
+    # computed values, used within a single year and then zeroed out
     TAX_OWED = "tax_owed"
     IRA_WITHDRAWALS = "ira_withdrawals"
-    # persistent running balances
+    # persistent running balances, accumulate over years
     SAVINGS = "savings"
     DEFERRED_IRA = "ira"
     EXEMPT_ROTH = "roth"
